@@ -6,12 +6,24 @@ ENV LINUX_TAG=linux_x86_64
 
 RUN yum update -y \
 	&& yum install -y \
-		libuuid-devel \
 		openssl-devel \
 		R-core-devel \
 	&& yum clean all
 
 WORKDIR /prep/
+
+
+# libuuid 
+
+RUN curl -L http://bqfrank.spdns.org/Files/libuuid-1.0.3.tar.gz | tar -xz \
+  && cd libuuid-1.0.3 \
+  && ./configure --disable-dependency-tracking --with-pic --enable-static=yes --enable-shared=no \
+  && make clean \
+  && make -j 2 \
+  && make install \
+  && rm /usr/local/lib/libuuid.la \
+  && cd .. \
+  && rm -r libuuid-*
 
 # COPASI dependency, current
 RUN curl -L https://cmake.org/files/v3.17/cmake-3.17.2.tar.gz | tar -xz \
