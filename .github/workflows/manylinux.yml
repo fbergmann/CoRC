@@ -1,0 +1,140 @@
+# This is a basic workflow to help you get started with Actions
+
+name: manylinux Installer build
+
+# Controls when the workflow will run
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      COPASI_REPOSITORY:
+        description: "COPASI repository"
+        required: true
+        default: https://github.com/copasi/COPASI.git
+
+      COPASI_DEPENDENCIES_REPOSITORY:
+        description: "COPASI dependencies repository"
+        required: true
+        default: https://github.com/copasi/copasi-dependencies.git
+
+      COPASI_DEPENDENCIES_CLONE_OPTS:
+        description: "COPASI dependencies clone options"
+        required: false
+        default: ""
+
+      COPASI_BRANCH:
+        description: "COPASI branch"
+        required: false
+        default: release/Version-4.47
+
+      COPASI_COMMENT:
+        description: "COPASI comment"
+        required: false
+        default: stable
+
+      ARTIFACT_COMMENT:
+        description: "Artifact comment"
+        required: false
+        default: ""
+
+      QT_VERSION_NUMBER:
+        description: "QT version number"
+        required: true
+        default: 6.9.3
+
+      ENABLE_OMP:
+        description: "Enable OpenMP (sets ENABLE_OMP env to ON or OFF for CMake)"
+        required: false
+        type: boolean
+        default: true
+  # run this task every week at 2am
+  schedule:
+    - cron: '0 2 * * 0'
+env:
+  COPASI_REPOSITORY: ${{ inputs.COPASI_REPOSITORY || 'https://github.com/copasi/COPASI.git' }}
+  COPASI_DEPENDENCIES_REPOSITORY: ${{ inputs.COPASI_DEPENDENCIES_REPOSITORY || 'https://github.com/copasi/copasi-dependencies.git' }}
+  COPASI_DEPENDENCIES_CLONE_OPTS: ${{ inputs.COPASI_DEPENDENCIES_CLONE_OPTS || '' }}
+  ARTIFACT_COMMENT: ${{ inputs.ARTIFACT_COMMENT || '' }}
+  COPASI_BRANCH: ${{ inputs.COPASI_BRANCH || 'release/Version-4.47' }}
+  COPASI_COMMENT: ${{ inputs.COPASI_COMMENT || 'stable' }}
+
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux_2_28_x86_64
+    environment: deploy
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      
+
+      - name: create virtual environment install R
+        shell: bash
+        run: |
+          python3 -m venv env-build
+          source ./env-build/bin/activate
+          pip install swig==3.0.12 cmake ninja  mkl-static==2025.3.1
+          yum update -y
+          yum install -y openssl-devel R-core-devel wget gcc-toolset-14-gcc-plugin-annobin pandoc  
+          R -e 'chooseCRANmirror(ind = 1); install.packages(c("remotes", "sessioninfo", "testthat", "vctrs", "purrr", "stringr", "readr", "isnullptr"))'
+          R -e 'chooseCRANmirror(ind = 1); install.packages(c("knitr", "rmarkdown", "backports"))'
+
+          
+      - name: checkout corc, copasi, copasi-dependencies
+        run: |
+          git clone https://github.com/fbergmann/CoRC.git
+          cd ./CoRC/dev/copasi-source/
+          rm -rf COPASI
+          rm -rf copasi-dependencies
+          git clone --branch $COPASI_BRANCH --depth 1 --single-branch $COPASI_REPOSITORY
+          git clone $COPASI_DEPENDENCIES_REPOSITORY --depth 1 $COPASI_DEPENDENCIES_CLONE_OPTS
+          cd COPASI
+          ./gitTools/UpdateCopasiVersion
+
+      - name: build dependencies / coapsi
+        shell: bash
+        run: |
+          # print bash version
+          bash --version
+          # print bash location
+          which bash
+          
+          export PATH=$PWD/env-build/bin:$PATH
+          export HOME_BUILD_SYSTEM=$PWD
+          source ./env-build/bin/activate
+
+          # build dependencies
+
+
+          # manually build copasi-dependencies
+          pushd CoRC/dev/copasi-source
+          cmake -G Ninja -B $HOME_BUILD_SYSTEM/build_dependencies -S copasi-dependencies -DCMAKE_INSTALL_PREFIX=$HOME_BUILD_SYSTEM/install -DBUILD_UI_DEPS=OFF
+          cmake --build ./build_dependencies/
+
+          # and copasi
+          cmake -G Ninja -B $HOME_BUILD_SYSTEM/build_copasi -S COPASI -DCMAKE_INSTALL_PREFIX=$HOME_BUILD_SYSTEM/install -DBUILD_GUI=OFF -DCOPASI_DEPENDENCY_DIR=$HOME_BUILD_SYSTEM/install/ -DENABLE_R=ON -DR_USE_DYNAMIC_LOOKUP=ON
+          cmake --build $HOME_BUILD_SYSTEM/build_copasi/
+          popd
+
+          # copy files
+          mkdir CoRC/inst/libs
+          cp $HOME_BUILD_SYSTEM/build_copasi/copasi/bindings/R/COPASI.so CoRC/inst/libs/
+          rm -y CoRC/R/swig_wrapper.R
+          cp $HOME_BUILD_SYSTEM/build_copasi/copasi/bindings/R/COPASI.R CoRC/R/swig_wrapper.R
+
+          # build package
+          R CMD build --no-build-vignettes CoRC 
+
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: manylinux${{ env.ARTIFACT_COMMENT }}
+          path: |
+            *.tar.gz            
+          retention-days: 7
+          if-no-files-found: error      
+      
