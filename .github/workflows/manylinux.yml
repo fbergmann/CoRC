@@ -37,11 +37,6 @@ on:
         required: false
         default: ""
 
-      QT_VERSION_NUMBER:
-        description: "QT version number"
-        required: true
-        default: 6.9.3
-
       ENABLE_OMP:
         description: "Enable OpenMP (sets ENABLE_OMP env to ON or OFF for CMake)"
         required: false
@@ -112,18 +107,18 @@ jobs:
 
           # manually build copasi-dependencies
           pushd CoRC/dev/copasi-source
-          cmake -G Ninja -B $HOME_BUILD_SYSTEM/build_dependencies -S copasi-dependencies -DCMAKE_INSTALL_PREFIX=$HOME_BUILD_SYSTEM/install -DBUILD_UI_DEPS=OFF
+          cmake -G Ninja -B $HOME_BUILD_SYSTEM/build_dependencies -S copasi-dependencies -DCMAKE_INSTALL_PREFIX=$HOME_BUILD_SYSTEM/install -DBUILD_UI_DEPS=OFF -DCMAKE_BUILD_TYPE=Release 
           cmake --build $HOME_BUILD_SYSTEM/build_dependencies/
 
           # and copasi
-          cmake -G Ninja -B $HOME_BUILD_SYSTEM/build_copasi -S COPASI -DCMAKE_INSTALL_PREFIX=$HOME_BUILD_SYSTEM/install -DBUILD_GUI=OFF -DCOPASI_DEPENDENCY_DIR=$HOME_BUILD_SYSTEM/install/ -DENABLE_R=ON -DR_USE_DYNAMIC_LOOKUP=ON
-          cmake --build $HOME_BUILD_SYSTEM/build_copasi/
+          cmake -G Ninja -B $HOME_BUILD_SYSTEM/build_copasi -S COPASI -DCMAKE_INSTALL_PREFIX=$HOME_BUILD_SYSTEM/install -DBUILD_GUI=OFF -DCOPASI_DEPENDENCY_DIR=$HOME_BUILD_SYSTEM/install/ -DENABLE_R=ON -DR_USE_DYNAMIC_LOOKUP=ON -DBUILD_SE=OFF -DCMAKE_BUILD_TYPE=Release  
+          cmake --build $HOME_BUILD_SYSTEM/build_copasi/ --target binding_r_lib
           popd
 
           # copy files
           mkdir CoRC/inst/libs
           cp $HOME_BUILD_SYSTEM/build_copasi/copasi/bindings/R/COPASI.so CoRC/inst/libs/
-          rm -y CoRC/R/swig_wrapper.R
+          rm -f CoRC/R/swig_wrapper.R
           cp $HOME_BUILD_SYSTEM/build_copasi/copasi/bindings/R/COPASI.R CoRC/R/swig_wrapper.R
 
           # build package
