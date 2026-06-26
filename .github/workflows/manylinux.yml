@@ -115,6 +115,12 @@ jobs:
           # and copasi
           cmake -G Ninja -B $HOME_BUILD_SYSTEM/build_copasi -S COPASI -DCMAKE_INSTALL_PREFIX=$HOME_BUILD_SYSTEM/install -DBUILD_GUI=OFF -DCOPASI_DEPENDENCY_DIR=$HOME_BUILD_SYSTEM/install/ -DENABLE_R=ON -DR_USE_DYNAMIC_LOOKUP=ON -DBUILD_SE=OFF -DCMAKE_BUILD_TYPE=Release  -DENABLE_JIT=$ENABLE_JIT
           cmake --build $HOME_BUILD_SYSTEM/build_copasi/ --target binding_r_lib
+
+          # test r bindings
+          pushd $HOME_BUILD_SYSTEM/build_copasi
+          ctest -R test_r
+          popd
+          
           popd
 
           # copy files
