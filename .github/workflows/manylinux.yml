@@ -118,7 +118,7 @@ jobs:
 
           # test r bindings
           pushd $HOME_BUILD_SYSTEM/build_copasi
-          ctest -R test_r
+          ctest -R test_r -V
           popd
           
           popd
