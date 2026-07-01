@@ -109,7 +109,7 @@ jobs:
 
           # manually build copasi-dependencies
           pushd CoRC/dev/copasi-source
-          cmake -G Ninja -B $HOME_BUILD_SYSTEM/build_dependencies -S copasi-dependencies -DF2C_INTEGER=int -DF2C_LOGICAL=int -DCMAKE_INSTALL_PREFIX=$HOME_BUILD_SYSTEM/install -DBUILD_UI_DEPS=OFF -DCMAKE_BUILD_TYPE=Release 
+          cmake -G Ninja -B $HOME_BUILD_SYSTEM/build_dependencies -S copasi-dependencies -DCOMMON_CMAKE_OPTIONS="-DF2C_INTEGER=int;-DF2C_LOGICAL=int" -DCMAKE_INSTALL_PREFIX=$HOME_BUILD_SYSTEM/install -DBUILD_UI_DEPS=OFF -DCMAKE_BUILD_TYPE=Release 
           cmake --build $HOME_BUILD_SYSTEM/build_dependencies/
 
           # and copasi
