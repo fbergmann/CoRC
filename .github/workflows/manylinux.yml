@@ -62,23 +62,24 @@ jobs:
   build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    container: quay.io/pypa/manylinux_2_28_x86_64
-    environment: deploy
+    container: ghcr.io/fbergmann/corc/manylinux-2-28
+    #container: quay.io/pypa/manylinux_2_28_x86_64
+    #environment: deploy
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       
 
-      - name: create virtual environment install R
-        shell: bash
-        run: |
-          python3 -m venv env-build
-          source ./env-build/bin/activate
-          pip install swig==3.0.12 cmake ninja  mkl-static==2025.3.1
-          yum update -y
-          yum install -y openssl-devel R-core-devel wget gcc-toolset-14-gcc-plugin-annobin pandoc  
-          R -e 'chooseCRANmirror(ind = 1); install.packages(c("remotes", "sessioninfo", "testthat", "vctrs", "purrr", "stringr", "readr", "isnullptr"))'
-          R -e 'chooseCRANmirror(ind = 1); install.packages(c("knitr", "rmarkdown", "backports"))'
+      # - name: create virtual environment install R
+      #   shell: bash
+      #   run: |
+      #     python3 -m venv env-build
+      #     source ./env-build/bin/activate
+      #     pip install swig==3.0.12 cmake ninja  mkl-static==2025.3.1
+      #     yum update -y
+      #     yum install -y openssl-devel R-core-devel wget gcc-toolset-14-gcc-plugin-annobin pandoc  
+      #     R -e 'chooseCRANmirror(ind = 1); install.packages(c("remotes", "sessioninfo", "testthat", "vctrs", "purrr", "stringr", "readr", "isnullptr"))'
+      #     R -e 'chooseCRANmirror(ind = 1); install.packages(c("knitr", "rmarkdown", "backports"))'
 
           
       - name: checkout corc, copasi, copasi-dependencies
@@ -100,9 +101,9 @@ jobs:
           # print bash location
           which bash
           
-          export PATH=$PWD/env-build/bin:$PATH
+          export PATH=/build/env-build/bin:$PATH
           export HOME_BUILD_SYSTEM=$PWD
-          source ./env-build/bin/activate
+          source /build/env-build/bin/activate
 
           # build dependencies
 
