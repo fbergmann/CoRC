@@ -131,11 +131,15 @@ read_expr <- function(x, c_datamodel) {
     x,
     "<CN=.*?[^\\\\]>",
     function(x) {
-      x <- stringr::str_sub(x, 2L, -2L)
-      c_obj <- cn_to_object(x, c_datamodel)
-      assert_that(!is.null(c_obj), msg = paste0("Failure in expression readout. A common name was not resolvable."))
-      
-      escape_ref(get_key(c_obj))
+      cns <- stringr::str_sub(x, 2L, -2L)
+
+      objs <- map(cns, cn_to_object, c_datamodel = c_datamodel)
+      assert_that(
+        !any(map_lgl(objs, is.null)),
+        msg = paste0("Failure in expression readout. A common name was not resolvable.")
+      )
+
+      escape_ref(map_chr(objs, get_key))
     }
   )
 }
@@ -148,13 +152,20 @@ write_expr <- function(x, c_datamodel) {
     x,
     "\\{.*?[^\\\\]\\}",
     function(x) {
-      c_obj <- dn_to_object(unescape_ref(x), c_datamodel)
-      assert_that(!is.null(c_obj), msg = paste0("Cannot resolve ", x, "."))
-      
-      if (c_obj$getObjectType() != "Reference")
-        c_obj <- c_obj$getValueReference()
-      
-      paste0("<", get_cn(c_obj), ">")
+      refs <- unescape_ref(x)
+
+      objs <- map(refs, dn_to_object, c_datamodel = c_datamodel)
+      assert_that(
+        !any(map_lgl(objs, is.null)),
+        msg = paste0("Cannot resolve one or more references in expression.")
+      )
+
+      objs <- map(
+        objs,
+        ~ if (.x$getObjectType() == "Reference") .x else .x$getValueReference()
+      )
+
+      paste0("<", map_chr(objs, get_cn), ">")
     }
   )
 }
