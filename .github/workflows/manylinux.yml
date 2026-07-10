@@ -159,5 +159,7 @@ jobs:
           Rscript -e 'library(CoRC); loadExamples(1); runTimeCourse();'
 
           # run all tests
+          pushd CoRC
           Rscript -e 'devtools::test()'
-          
+          popd
+
