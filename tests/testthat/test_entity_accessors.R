@@ -107,7 +107,7 @@ test_that("getCompartments()", {
   expect_equal(compartments_df_c$initial_size, 1)
   expect_equal(compartments_df_c$size, 1)
   expect_equal(compartments_df_c$dimensionality, 2)
-  expect_identical(charToRaw(compartments_df_c$unit), charToRaw("m²"))
+  expect_identical(charToRaw(compartments_df_c$unit), charToRaw("m\u00B2"))
 })
 
 test_that("setCompartments()", {
