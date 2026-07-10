@@ -24,7 +24,19 @@ auto_cast <- function(c_object) {
 
 # Takes CN as character and gives object
 cn_to_object <- function(cn, c_datamodel, accepted_types = NULL) {
-  c_object <- c_datamodel$getObjectFromCN(CCommonName(cn))
+  if (inherits(cn, c("_p_CRegisteredCommonName", "_p_CCommonName"))) {
+    cn_obj <- cn
+  } else {
+    assert_that(
+      is.character(cn),
+      length(cn) == 1L,
+      !is.na(cn),
+      msg = "`cn` has to be a non-missing character scalar or a CCommonName object."
+    )
+    cn_obj <- CRegisteredCommonName(cn)
+  }
+
+  c_object <- c_datamodel$getObjectFromCN(cn_obj)
   
   if (is.null(c_object))
     return()
@@ -90,7 +102,7 @@ get_cn <- function(c_object) {
   
   # cl_object$getCN()$getString()
   # For performance reasons:
-  CCommonName_getString(CDataObject_getCN(c_object))
+  CCommonName_getString(CObjectInterface_getCN(c_object))
 }
 
 # get the DN of an object or list of objects as character vector
@@ -103,22 +115,61 @@ get_key <- function(objects, is_species = FALSE) {
     cl_objects <- list(objects)
   else
     cl_objects <- objects
-  
-  are_species <- rep_along(cl_objects, is_species)
-  
-  if (is.na(is_species)) {
-    are_species <- map_swig_chr(cl_objects, "getObjectType") == "Metabolite"
+
+  # Some APIs return generic CObjectInterface pointers that are unsafe to query
+  # directly via getObjectType/getObjectDisplayName in recent bindings.
+  cl_objects <-
+    cl_objects %>%
+    map(function(c_obj) {
+      if (!inherits(c_obj, "_p_CObjectInterface"))
+        return(c_obj)
+
+      c_data_obj <- try(c_obj$getDataObject(), silent = TRUE)
+      if (inherits(c_data_obj, "try-error") || is.null(c_data_obj))
+        return(c_obj)
+
+      auto_cast(c_data_obj)
+    })
+
+  is_chr <- map_lgl(cl_objects, ~ is.character(.x) && length(.x) == 1L)
+  is_obj <- !is_chr
+
+  are_species <- rep_along(cl_objects, FALSE)
+  if (any(is_obj)) {
+    are_species[is_obj] <- rep_along(cl_objects[is_obj], is_species)
+
+    if (is.na(is_species)) {
+      are_species[is_obj] <- map_swig_chr(cl_objects[is_obj], "getObjectType") == "Metabolite"
+    }
   }
-  
+
   dns <- character(length(cl_objects))
-  
-  dns[!are_species] <- map_swig_chr(cl_objects[!are_species], "getObjectDisplayName")
-  
-  dns[are_species] <-
-    cl_objects[are_species] %>%
+
+  if (any(is_chr)) {
+    dns[is_chr] <- unlist(cl_objects[is_chr], use.names = FALSE)
+  }
+
+  non_species_obj <- is_obj & !are_species
+  if (any(non_species_obj)) {
+    dns_non_species <- map_swig_chr(cl_objects[non_species_obj], "getObjectDisplayName")
+    is_reference <- map_swig_chr(cl_objects[non_species_obj], "getObjectType") == "Reference"
+    dns_non_species[is_reference] <- stringr::str_replace(dns_non_species[is_reference], "^\\[(.*)\\]$", "\\1")
+    dns_non_species[is_reference] <- stringr::str_replace(
+      dns_non_species[is_reference],
+      "\\.(ParticleNumber|Concentration|Value|Volume)$",
+      ""
+    )
+    dns[non_species_obj] <- dns_non_species
+  }
+
+  species_obj <- is_obj & are_species
+  if (any(species_obj)) {
+    dns[species_obj] <-
+    cl_objects[species_obj] %>%
     map(as, "_p_CMetab") %>%
     map_chr(CMetabNameInterface_createUniqueDisplayName, FALSE)
-    
+  }
+
   dns
 }
 
