@@ -157,4 +157,7 @@ jobs:
           # install
           R CMD INSTALL --install-tests CoRC_*.tar.gz
           Rscript -e 'library(CoRC); loadExamples(1); runTimeCourse();'
+
+          # run all tests
+          Rscript -e 'devtools::test()'
           
