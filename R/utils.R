@@ -225,7 +225,8 @@ get_ref_dir <- function(c_datamodel) {
 grab_msg <- function(x, purge = character()) {
   purge_by_default <- c(
     ": No output file defined for report of task ",
-    "The MIRIAM resource '.*' is unknown to COPASI."
+    "The MIRIAM resource '.*' is unknown to COPASI.",
+    "^Message \\([0-9]+\\): No more messages\\.$"
   )
   purge <- c(purge, purge_by_default)
   
