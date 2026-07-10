@@ -81,14 +81,57 @@ pkg_env$c_curr_dm <- NULL
 # the user can crash the R session by using unloaded model references
 pkg_env$cl_loaded_dms <- list()
 
+# Resolve package path for both installed and source/dev loads.
+# During pkgload::load_all(), libname can be "/".
+resolve_pkg_path <- function(libname, pkgname) {
+  installed_path <- file.path(libname, pkgname)
+  if (dir.exists(installed_path))
+    return(installed_path)
+
+  ns_path <- tryCatch(
+    getNamespaceInfo(asNamespace(pkgname), "path"),
+    error = function(e) ""
+  )
+  if (nzchar(ns_path) && dir.exists(ns_path))
+    return(ns_path)
+
+  installed_path
+}
+
+find_copasi_libfile <- function(pkg_path) {
+  r_arch_env <- Sys.getenv("R_ARCH")
+  candidates <- unique(c(
+    file.path(pkg_path, "libs", r_arch_env, paste0("COPASI", .Platform$dynlib.ext)),
+    file.path(pkg_path, "libs", .Platform$r_arch, paste0("COPASI", .Platform$dynlib.ext)),
+    file.path(pkg_path, "libs", paste0("COPASI", .Platform$dynlib.ext))
+  ))
+
+  existing <- candidates[file.exists(candidates)]
+  if (length(existing))
+    existing[[1]]
+  else
+    ""
+}
+
 .onLoad <- function(libname, pkgname) {
   backports::import(pkgname, c("anyNA", "dir.exists", "lengths"))
   backports::import(pkgname, "hasName", force = TRUE)
   if (utils::packageVersion("stringr") < "1.5.0")
     has_engine <<- function(x) inherits(x, c("fixed", "coll", "regex"))
+
+  pkg_path <- resolve_pkg_path(libname, pkgname)
   
   load <- function() {
-    COPASI <<- library.dynam("COPASI", pkgname, libname)
+    if (basename(pkg_path) == pkgname) {
+      COPASI <<- library.dynam("COPASI", pkgname, dirname(pkg_path))
+    } else {
+      libfile <- find_copasi_libfile(pkg_path)
+      assert_that(
+        nzchar(libfile),
+        msg = paste0("Could not find COPASI library in package path: ", pkg_path)
+      )
+      COPASI <<- dyn.load(libfile)
+    }
     # clearing the deque hides the annoying message about COPASI home directory on linux
     CCopasiMessage_clearDeque()
     CJitCompilerImplementation_SetJitBufferSize(1024 * 8 * 16)
@@ -99,7 +142,7 @@ pkg_env$cl_loaded_dms <- list()
     # if this is done during package install, it doesn't hard fail if the arch is unsupported
     # this will allow the install to finish
     # yet, loading on said unsupported arch, will then fail
-    if (get_copasi(libname, pkgname, Sys.getenv("R_PACKAGE_NAME") == getPackageName()))
+    if (get_copasi(libname, pkgname, Sys.getenv("R_PACKAGE_NAME") == getPackageName(), pkg_path = pkg_path))
       load()
   })
   
@@ -129,7 +172,7 @@ getVersion <- function() {
 
 # successor to getCopasi but not exported
 # is used primarily (hopefully exclusively) during pkg install
-get_copasi <- function(libname, pkgname, is_pkg_install) {
+get_copasi <- function(libname, pkgname, is_pkg_install, pkg_path = NULL) {
   # R_LIBS <- strsplit(Sys.getenv("R_LIBS"), ";", fixed = TRUE)[[1]]
   # R_PACKAGE_DIR <- Sys.getenv("R_PACKAGE_DIR")
   # R_OSTYPE <- Sys.getenv("R_OSTYPE")
@@ -146,8 +189,8 @@ get_copasi <- function(libname, pkgname, is_pkg_install) {
   
   print0("platform = ", os, "_", arch)
   
-  # print0(pkgname)
-  # print0(libname)
+   print0("pkgname = ", pkgname)
+   print0("libname = ", libname)
   # print0(R_LIBS)
   # print_env("R_PACKAGE_DIR")
   # print_env("R_OSTYPE")
@@ -186,12 +229,15 @@ get_copasi <- function(libname, pkgname, is_pkg_install) {
   # windows64 = x86_64
   # ubunut64 = x86_64
   # maxos64 = x86_64
+
+  if (is.null(pkg_path) || !nzchar(pkg_path))
+    pkg_path <- resolve_pkg_path(libname, pkgname)
   
   digest <- partial(digest::digest, algo = "sha256", file = TRUE)
   
-  libsdir_base <- file.path(libname, pkgname, "libs")
+  libsdir_base <- file.path(pkg_path, "libs")
   
-  # print0("libsdir_base = ", libsdir_base)
+  print0("libsdir_base = ", libsdir_base)
   
   dir_create_if_missing <- function(x, recursive = FALSE) {
     dir.exists(x) || dir.create(x, recursive = recursive)
