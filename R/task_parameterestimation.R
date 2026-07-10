@@ -605,7 +605,7 @@ addExperiments <- function(..., model = getCurrentModel()) {
       
       # We have a list of object_maps and all need the same types and mappings
       types_ordered %>% iwalk(~ walk_swig(cl_object_maps, "setRole", .y - 1L, .x))
-      mappings_ordered %>% iwalk(~ walk_swig(cl_object_maps, "setObjectCN", .y - 1L, .x))
+      mappings_ordered %>% iwalk(~ walk_swig(cl_object_maps, "setObjectCN", .y - 1L, CRegisteredCommonName(.x)))
       weights_ordered %>% iwalk(~ walk_swig(cl_object_maps, "setScale", .y - 1L, .x))
       
       # Add all experiments to COPASI
