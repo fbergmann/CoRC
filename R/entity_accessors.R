@@ -44,7 +44,7 @@ getSpecies <- function(key = NULL, raw_expressions = FALSE, model = getCurrentMo
     "Compartment"           = map_swig_chr(cl_comps, "getObjectName"),
     "Type"                  = tolower(types),
     "Unit"                  = paste0(c_model$getQuantityUnit(), "/", get_dimension_units(c_model)[dimensionality + 1L]),
-    "Initial Concentration" = map_swig_dbl(cl_metabs, "getInitialConcentration"),
+    "Initial Concentration" = signif(map_swig_dbl(cl_metabs, "getInitialConcentration"), digits = 15L),
     "Initial Number"        = map_swig_dbl(cl_metabs, "getInitialValue"),
     "Concentration"         = map_swig_dbl(cl_metabs, "getConcentration"),
     "Number"                = map_swig_dbl(cl_metabs, "getValue"),
@@ -1408,7 +1408,7 @@ getEvents <- function(key = NULL, raw_expressions = FALSE, model = getCurrentMod
     cl_assignments %>%
     map(~
       .x %>%
-      map_swig_chr("getTargetCN") %>%
+      map_swig("getTargetCN") %>%
       map(cn_to_object, c_datamodel) %>%
       get_key()
     )
