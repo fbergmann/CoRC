@@ -142,3 +142,19 @@ jobs:
           retention-days: 7
           if-no-files-found: error      
       
+      - name: install and test package
+        shell: bash
+        run: |
+          # print bash version
+          bash --version
+          # print bash location
+          which bash
+          
+          export PATH=/build/env-build/bin:$PATH
+          export HOME_BUILD_SYSTEM=$PWD
+          source /build/env-build/bin/activate
+
+          # install
+          R CMD INSTALL --install-tests CoRC_*.tar.gz
+          Rscript -e 'library(CoRC); loadExamples(1); runTimeCourse();'
+          
