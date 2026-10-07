@@ -25,7 +25,7 @@ on:
       COPASI_BRANCH:
         description: "COPASI branch"
         required: false
-        default: release/Version-4.47
+        default: release/Version-4.48
 
       COPASI_COMMENT:
         description: "COPASI comment"
